@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: qq-bot
+  datasource:
+    url: jdbc:mysql://localhost:3306/qq_bot?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+server:
+  port: 8080
+shiro:
+  # 反向 WebSocket：本项目做服务端，等 NapCat 连过来
+  ws:
+    server:
+      enable: true
+      url: /ws/shiro
+    # 正向连接（本项目主动连 NapCat），不用就关掉；
+    # 与 server.enable 同时为 true 会导致框架直接 System.exit(0)
+    client:
+      enable: false
+  plugin-list:
+    - com.qqbot.plugin.TestPlugin

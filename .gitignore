@@ -1,0 +1,23 @@
+# ---- Compiled output ----
+target/
+*.class
+
+# ---- IDE ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# ---- Logs ----
+*.log
+logs/
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- Local overrides / secrets ----
+.env
+application-local.yml
+application-local.yaml
