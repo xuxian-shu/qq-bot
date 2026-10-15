@@ -21,3 +21,4 @@ shiro:
       enable: false
   plugin-list:
     - com.qqbot.plugin.TestPlugin
+    - com.qqbot.handler.WeatherHandler
