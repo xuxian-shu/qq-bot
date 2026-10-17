@@ -16,16 +16,21 @@ public class AiServiceImpl implements AiService {
 
     @Override
     public String chat(String prompt, String chatId) {//调用AI服务，传入用户消息和QQ号，返回AI回复
-        //调用本地模型Ollama
-        String response = chatClient.prompt()
-                .user(prompt)//设置用户消息
-                .call()//调用AI服务，传入用户消息
-                .content();//返回AI回复
+        try {
+            //调用本地模型Ollama
+            String response = chatClient.prompt()
+                    .user(prompt)//设置用户消息
+                    .call()//调用AI服务，传入用户消息
+                    .content();//返回AI回复
 
-        //去掉首尾多余的空格和换行符
-        if (response != null) {
-            response = response.trim();//去掉首尾多余的空格和换行符
+            //去掉首尾多余的空格和换行符
+            if (response != null) {
+                response = response.trim();//去掉首尾多余的空格和换行符
+            }
+            return response;//返回AI回复
+        } catch (Exception e) {
+            //如果调用AI服务失败，返回提示
+            return "调用AI服务失败，请稍后重试";
         }
-        return response;
     }
 }
