@@ -54,6 +54,11 @@ public class AiHandler extends BotPlugin {
                 return MESSAGE_IGNORE;
             }
 
+            //排除掉“签到”和“hello”，剩下的交给AI
+            if ("签到".equals(cleanMsg) || "hello".equals(cleanMsg)) {//如果是签到或hello
+                return MESSAGE_IGNORE;
+            }
+
             //群聊，每人5秒冷却（防止刷屏）
             if (cooldownService.isCoolingDown("ai", qq, 5)) {//如果在冷却中
                 bot.sendGroupMsg(groupId, "本王还在冷却中! 请5秒后再试", false);//发送提示消息给群聊
@@ -61,7 +66,7 @@ public class AiHandler extends BotPlugin {
             }
 
             //发送AI回复,群聊ID+用户QQ号，作为chatId
-            String reply = aiService.chat(cleanMsg,groupId+"_"+qq);//群聊ID+用户QQ号，作为chatId
+            String reply = aiService.chat(cleanMsg, groupId + "_" + qq);//群聊ID+用户QQ号，作为chatId
             bot.sendGroupMsg(groupId, reply, false);//发送AI回复给群聊
         }
         return MESSAGE_IGNORE;
