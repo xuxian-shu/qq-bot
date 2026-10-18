@@ -5,6 +5,7 @@ import com.qqbot.entity.SignInRecord;
 import com.qqbot.entity.User;
 import com.qqbot.mapper.SignInrecordMapper;
 import com.qqbot.mapper.UserMapper;
+import com.qqbot.service.BotImageService;
 import com.qqbot.service.SignInService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,9 @@ public class SignInServiceImpl implements SignInService {
 
     @Resource
     private SignInrecordMapper signInrecordMapper;
+
+    @Resource
+    private BotImageService botImageService;
 
     @Override
     @Transactional
@@ -61,6 +65,7 @@ public class SignInServiceImpl implements SignInService {
         userMapper.updateById(user);
 
         // 5. 返回结果
-        return String.format("签到成功！积分 +10，当前积分：%d", user.getPoints());
+        //把数据交给图片服务，拿回 CQ 码
+        return botImageService.generateSignCardCqCode(qq, "群友", user.getPoints());
     }
 }
