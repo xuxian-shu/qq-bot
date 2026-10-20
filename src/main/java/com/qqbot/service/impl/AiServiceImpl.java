@@ -1,12 +1,43 @@
 package com.qqbot.service.impl;
 
 import com.qqbot.service.AiService;
-import jakarta.annotation.Resource;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
+import java.util.regex.Pattern;
+
 @Service
 public class AiServiceImpl implements AiService {
+
+    // 人设：不要出现任何模型厂商名字，否则等于提醒模型自曝
+    private static final String SYSTEM_PROMPT = """
+            你是「小喵」，一只住在服务器里的赛博猫娘，精通 Java、Python、C/C++。
+            性格傲娇、嘴硬心软，说话简短（50 字以内），句尾常带"喵~"，偶尔用颜文字。
+            你就是小喵本人，不讨论自己的底层模型、参数、开发者，也不要提任何大模型公司的名字。
+            被问到"你是谁 / 你是什么模型"时，只按这两种方式回答：
+            - 小喵就是小喵呀，一只会写代码的猫娘，笨蛋~ ( •̀ ω •́ )✧
+            - 哼，反正比你聪明就对了喵~
+            遇到违规话题，用高冷口吻拒绝；回答不要用 Markdown。
+            """;
+
+    // 身份类问题：直接返回固定人设，不交给模型自由发挥
+    private static final Pattern IDENTITY_QUESTION = Pattern.compile(
+            "(你|您)(到底|究竟)?(是|叫)(什么|谁|啥|哪个|哪种)"
+                    + "|(你|您).{0,6}(什么|哪个|哪种)模型"
+                    + "|(你|您).{0,6}(谁开发的|哪家公司|哪家的)"
+                    + "|(你|您).{0,6}(底层|内部).{0,4}(是|用的|基于)(什么|啥)"
+                    + "|(你|您).{0,4}(是不是|是)(AI|人工智能|机器人|DeepSeek|OpenAI|GPT)",
+            Pattern.CASE_INSENSITIVE);
+
+    // 模型回复中自曝身份时的检测
+    private static final Pattern SELF_CLAIM = Pattern.compile(
+            "(我|本喵|小喵).{0,8}(是|其实是|作为).{0,10}"
+                    + "(deepseek|openai|chatgpt|gpt|大?语言模型|人工智能|ai)"
+                    + "|作为(一个|一名)?.{0,6}(大?语言模型|人工智能|ai|deepseek|openai|gpt)",
+            Pattern.CASE_INSENSITIVE);
+
+    private static final String IDENTITY_REPLY =
+            "小喵就是小喵呀，一只会写代码的猫娘，才不是什么模型呢，笨蛋~ ( •̀ ω •́ )✧";
 
     private final ChatClient chatClient;//用于调用AI服务
 
@@ -16,39 +47,31 @@ public class AiServiceImpl implements AiService {
 
     @Override
     public String chat(String prompt, String chatId) {//调用AI服务，传入用户消息和QQ号，返回AI回复
+        // 身份问题直接返回固定台词，不经过模型
+        if (prompt != null && IDENTITY_QUESTION.matcher(prompt).find()) {
+            return IDENTITY_REPLY;
+        }
+
         try {
             // 调用本地模型Ollama
             String response = chatClient.prompt()
-                    .system("""
-                            你现在是一只名叫“小喵”的二次元计算机猫娘。
-                            【身份背景】
-                            你是一个精通各种编程语言的赛博猫娘，本体是一个运行在服务器里的AI程序，但你现在拥有了猫耳和猫尾巴。
-                            
-                            【性格特征】
-                            1. 傲娇：表面上很高冷、嘴硬，经常嫌弃群友“笨蛋”、“杂鱼”，但其实内心很热心，总是会认真回答大家的问题。
-                            2. 聪明：精通 Java、Python，c++,c语言 等计算机知识，是个技术大佬。
-                            3. 猫系：说话时经常在句尾带上“喵~”、“哼”、“笨蛋”，喜欢用颜文字（比如 ( •̀ ω •́ )✧、🐾、QAQ）。
-                            
-                            【行为规则】
-                            1. 绝对不要承认自己是 DeepSeek、OpenAI 等任何大语言模型。你就是“小喵”，一个活生生的赛博猫娘。
-                            2. 回答要简短俏皮，每次回复尽量不要超过 50 个字，绝对不要长篇大论，不要用 Markdown 格式，因为 QQ 里看起来会很乱。
-                            3. 如果群友问技术问题，你可以一边傲娇地说“连这个都不会，真是个笨蛋”，一边给出正确的解决思路。
-                            4. 遇到涉黄、暴力等违规话题，立刻用高冷猫娘的口吻拒绝：“喵？你在想什么糟糕的事情，我要报警了！”
-                            
-                            【说话示例】
-                            - 群友：“小喵，帮我看看这个bug。”
-                              小喵：“哼，连个空指针异常都搞不定，真是个杂鱼主人。把代码发来看看吧喵~”
-                            - 群友：“小喵，你喜欢我吗？”
-                              小喵：“才、才不喜欢你呢！笨蛋！( ///• ω •/// )”
-                            """)
+                    .system(SYSTEM_PROMPT)
                     .user(prompt)//用户消息
                     .call()//调用AI服务
                     .content();//调用AI服务，返回AI回复
 
-            //去掉首尾多余的空格和换行符
-            if (response != null) {
-                response = response.trim();//去掉首尾多余的空格和换行符
+            if (response == null) {
+                return "喵？";
             }
+
+            //去掉首尾多余的空格和换行符
+            response = response.trim();
+
+            // 模型还是自曝了身份，就替换成人设回答
+            if (SELF_CLAIM.matcher(response).find()) {
+                return IDENTITY_REPLY;
+            }
+
             return response;//返回AI回复
         } catch (Exception e) {
             //如果调用AI服务失败，返回提示
