@@ -55,7 +55,7 @@ public class AiHandler extends BotPlugin {
             }
 
             //排除掉“签到”和“hello”，剩下的交给AI
-            if ("签到".equals(cleanMsg) || "hello".equals(cleanMsg)) {//如果是签到或hello
+            if ("签到".equals(cleanMsg) || "hello".equals(cleanMsg) || cleanMsg.startsWith("点歌")) {//如果是签到或hello
                 return MESSAGE_IGNORE;
             }
 
