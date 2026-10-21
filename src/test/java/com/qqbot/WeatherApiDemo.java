@@ -11,10 +11,19 @@ public class WeatherApiDemo {
         // 创建天气服务
         WeatherService weatherService = new WeatherServiceImpl();
 
-        // 调用服务，获取中文预报
-        String forecast = weatherService.getNanJingForecast();
+        // 全球任意地点都可以查：中文名、英文名、甚至经纬度
+        String[] cities = {"南京", "北京", "上海", "纽约", "伦敦", "悉尼",
+                "New York", "London", "Sydney", "東京", "开罗",
+                "39.90,116.40", "一个不存在的城市"};
 
-        // 打印返回结果
-        System.out.println(forecast);
+        for (String city : cities) {
+            System.out.println("===== " + city + " =====");
+            try {
+                System.out.println(weatherService.getForecast(city));
+            } catch (IOException e) {
+                System.out.println("查询失败：" + e.getMessage());
+            }
+            System.out.println();
+        }
     }
 }
