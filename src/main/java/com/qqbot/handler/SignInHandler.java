@@ -31,7 +31,10 @@ public class SignInHandler extends BotPlugin {
             }
 
             // 不在冷却中，正常走签到业务
-            String reply = signInService.signIn(qq);
+            // 私聊事件里能拿到发送者昵称；拿不到就传 null，由 Service 用默认称呼兜底
+            var sender = event.getPrivateSender();
+            String nickname = sender == null ? null : sender.getNickname();
+            String reply = signInService.signIn(qq, nickname);
             bot.sendPrivateMsg(qq, reply, false);
         }
         return MESSAGE_IGNORE;
@@ -58,7 +61,15 @@ public class SignInHandler extends BotPlugin {
                 }
 
                 // 不在冷却中，正常走签到业务
-                String reply = signInService.signIn(qq);
+                // 群名片优先，没设群名片就用 QQ 昵称
+                var sender = event.getSender();
+                String nickname = null;
+                if (sender != null) {
+                    nickname = (sender.getCard() != null && !sender.getCard().isBlank())
+                            ? sender.getCard()
+                            : sender.getNickname();
+                }
+                String reply = signInService.signIn(qq, nickname);
                 //返回群聊结果
                 bot.sendGroupMsg(groupId, reply, false);//发送签到结果给群聊
             }

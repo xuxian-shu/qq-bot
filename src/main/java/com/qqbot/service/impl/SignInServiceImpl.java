@@ -28,8 +28,12 @@ public class SignInServiceImpl implements SignInService {
 
     @Override
     @Transactional
-    public String signIn(long qq) {
+    public String signIn(long qq, String nickname) {
         LocalDate today = LocalDate.now();//当前日期
+
+        // 昵称可能拿不到（比如事件里没有发送者信息），为空就用默认称呼，
+        // 避免卡片上显示 “昵称: null”
+        String displayName = (nickname == null || nickname.isBlank()) ? "群友" : nickname.trim();
 
         // 1. 查今天是否已经签到过
         LambdaQueryWrapper<SignInRecord> query = new LambdaQueryWrapper<>();//去数据库查询是否有签到记录
@@ -65,7 +69,7 @@ public class SignInServiceImpl implements SignInService {
         userMapper.updateById(user);
 
         // 5. 返回结果
-        //把数据交给图片服务，拿回 CQ 码
-        return botImageService.generateSignCardCqCode(qq, "群友", user.getPoints());
+        //把数据交给图片服务，拿回 CQ 码（使用调用方传进来的真实昵称）
+        return botImageService.generateSignCardCqCode(qq, displayName, user.getPoints());
     }
 }
