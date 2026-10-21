@@ -9,6 +9,8 @@ import com.qqbot.service.CooldownService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Component;
 
+import static com.qqbot.handler.HelpHandler.isHelpCommand;
+
 @Component
 public class AiHandler extends BotPlugin {
     @Resource
@@ -22,14 +24,19 @@ public class AiHandler extends BotPlugin {
         String msg = event.getMessage();
         long qq = event.getUserId();
 
-        //排除掉“签到”和“hello”，剩下的交给AI
-        if (!"签到".equals(msg) && !"hello".equals(msg)) {
-            //私聊，每人3秒冷却
-            if (cooldownService.isCoolingDown("ai", qq, 3)) {//如果在冷却中
-                bot.sendPrivateMsg(qq, "本王还在冷却中，请3秒后再试", false);//发送提示消息给用户
-                return MESSAGE_IGNORE;
-            }
+        // 指令类消息（签到、hello、帮助）不由 AI 处理，直接返回。
+        // 注意：这里必须 return，不能只把它们排除在冷却判断外面，
+        // 否则后面照样会调用 aiService.chat()，AI 还是会插嘴。
+        if ("签到".equals(msg) || "hello".equals(msg) || isHelpCommand(msg)) {
+            return MESSAGE_IGNORE;
         }
+
+        //普通聊天才检查冷却：私聊，每人3秒
+        if (cooldownService.isCoolingDown("ai", qq, 3)) {//如果在冷却中
+            bot.sendPrivateMsg(qq, "本王还在冷却中，请3秒后再试", false);//发送提示消息给用户
+            return MESSAGE_IGNORE;
+        }
+
         String reply = aiService.chat(msg, String.valueOf(qq));//调用AI服务，传入用户消息和QQ号，返回AI回复
         bot.sendPrivateMsg(qq, reply, false);//发送AI回复给用户
         return MESSAGE_IGNORE;
@@ -42,20 +49,24 @@ public class AiHandler extends BotPlugin {
         long groupId = event.getGroupId();//获取群聊ID
         long qq = event.getUserId();//获取用户QQ号
 
-        String botQq = "3809681102";//获取机器人QQ号
+        // 动态获取机器人自己的 QQ 号，不再写死
+        String atCode = "[CQ:at,qq=" + event.getSelfId() + "]";
 
         //只要当消息包含了@机器人QQ号，才处理
-        if (msg.contains("[CQ:at,qq=" + botQq + "]")) {
+        if (msg.contains(atCode)) {
             //把@机器人的代码删掉，只留用户消息
-            String cleanMsg = msg.replace("[CQ:at,qq=" + botQq + "]", "").trim();//删除@机器人的代码
+            String cleanMsg = msg.replace(atCode, "").trim();//删除@机器人的代码
 
             if (cleanMsg.isEmpty()) {//如果用户消息为空
                 bot.sendGroupMsg(groupId, "神人，艾特我干嘛", false);//发送提示消息给群聊
                 return MESSAGE_IGNORE;
             }
 
-            //排除掉“签到”和“hello”，剩下的交给AI
-            if ("签到".equals(cleanMsg) || "hello".equals(cleanMsg) || cleanMsg.startsWith("点歌")) {//如果是签到或hello
+            // 指令类消息交给各自的 Handler：
+            // 签到 → SignInHandler，点歌 → MusicHandler，帮助 → HelpHandler。
+            // 这里必须 return，否则 AI 还会再回复一次。
+            if ("签到".equals(cleanMsg) || "hello".equals(cleanMsg)
+                    || cleanMsg.startsWith("点歌") || isHelpCommand(cleanMsg)) {
                 return MESSAGE_IGNORE;
             }
 
