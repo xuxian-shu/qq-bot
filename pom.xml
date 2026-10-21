@@ -72,14 +72,21 @@
             <version>4.12.0</version>
         </dependency>
 
-        <!-- 8. 工具类：Lombok -->
+        <!-- 8. AI：Spring AI + 本地 Ollama（AiServiceImpl 用到 org.springframework.ai.*） -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-ollama</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+
+        <!-- 9. 工具类：Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
 
-        <!-- 9. 测试依赖 -->
+        <!-- 10. 测试依赖 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

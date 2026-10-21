@@ -6,6 +6,14 @@ spring:
     username: root
     password: ${MYSQL_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  # AI：本地 Ollama（Spring AI 自动配置）
+  # model 需要改成你本机 `ollama list` 里已经拉取的模型名，否则 AI 对话会调用失败
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        options:
+          model: qwen2.5:7b
 
 server:
   port: 8080
@@ -22,3 +30,7 @@ shiro:
   plugin-list:
     - com.qqbot.plugin.TestPlugin
     - com.qqbot.handler.WeatherHandler
+    - com.qqbot.handler.SignInHandler
+    - com.qqbot.handler.AiHandler
+    - com.qqbot.handler.MusicHandler
+    - com.qqbot.handler.HelpHandler
