@@ -24,11 +24,13 @@ public class AiHandler extends BotPlugin {
         String msg = event.getMessage();
         long qq = event.getUserId();
 
-        // 指令类消息（签到、hello、帮助、天气）不由 AI 处理，直接返回。
-        // 天气归 WeatherHandler 管，不排除的话 AI 会对"天气"再回一条，用户收到双份回复。
+        // 指令类消息（签到、hello、帮助、天气、积分）不由 AI 处理，直接返回。
+        // 天气归 WeatherHandler、积分归 PointsHandler 管，不排除的话
+        // 对应 Handler 回完后 AI 还会再回一条，用户收到双份回复。
         // 注意：这里必须 return，不能只把它们排除在冷却判断外面，
         // 否则后面照样会调用 aiService.chat()，AI 还是会插嘴。
-        if ("签到".equals(msg) || "hello".equals(msg) || "天气".equals(msg) || isHelpCommand(msg)) {
+        if ("签到".equals(msg) || "hello".equals(msg) || "天气".equals(msg)
+                || "积分".equals(msg) || "积分排行".equals(msg) || isHelpCommand(msg)) {
             return MESSAGE_IGNORE;
         }
 
@@ -64,10 +66,10 @@ public class AiHandler extends BotPlugin {
             }
 
             // 指令类消息交给各自的 Handler：
-            // 签到 → SignInHandler，点歌 → MusicHandler，帮助 → HelpHandler。
-            // 这里必须 return，否则 AI 还会再回复一次。
-            if ("签到".equals(cleanMsg) || "hello".equals(cleanMsg)
-                    || cleanMsg.startsWith("点歌") || isHelpCommand(cleanMsg)) {
+            // 签到 → SignInHandler，点歌 → MusicHandler，帮助 → HelpHandler，
+            // 积分 → PointsHandler。这里必须 return，否则 AI 还会再回复一次。
+            if ("签到".equals(cleanMsg) || "hello".equals(cleanMsg) || "积分".equals(cleanMsg)
+                    || "积分排行".equals(cleanMsg) || cleanMsg.startsWith("点歌") || isHelpCommand(cleanMsg)) {
                 return MESSAGE_IGNORE;
             }
 

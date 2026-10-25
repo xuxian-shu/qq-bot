@@ -4,9 +4,24 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/qq_bot?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
     username: root
-    password: ${MYSQL_PASSWORD}
+    password: 123456
     driver-class-name: com.mysql.cj.jdbc.Driver
-
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        model: deepseek-r1:1.5b
+        options:
+          temperature: 0.7
+          # 限制单次生成的最大 token 数。deepseek-r1 的思考部分也计入这个额度，
+          # 给太小会思考没结束就被截断、回复只剩半截思考，所以放宽到 1024；
+          # 同时防止小模型陷入重复循环时无限生成、把 Ollama 的推理槽占死
+          num-predict: 1024
 server:
   port: 8080
 shiro:
@@ -22,3 +37,8 @@ shiro:
   plugin-list:
     - com.qqbot.plugin.TestPlugin
     - com.qqbot.handler.WeatherHandler
+    - com.qqbot.handler.SignInHandler
+    - com.qqbot.handler.AiHandler
+    - com.qqbot.handler.MusicHandler
+    - com.qqbot.handler.HelpHandler
+    - com.qqbot.handler.PointsHandler

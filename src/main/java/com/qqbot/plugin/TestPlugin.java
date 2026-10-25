@@ -17,7 +17,7 @@ public class TestPlugin extends BotPlugin {
 
         // 3. 简单逻辑：如果用户发了 "hello"，我们就回复他
         if ("hello".equals(msg)) {
-            String replyMsg = "你好！我是你的 Java 机器人，已成功连接！";
+            String replyMsg = "你好！我是你的qq机器人，已成功连接！";
             // 发送私聊消息
             bot.sendPrivateMsg(userId, replyMsg, false);
         }
