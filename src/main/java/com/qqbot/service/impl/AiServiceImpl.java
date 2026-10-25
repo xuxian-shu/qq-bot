@@ -45,6 +45,20 @@ public class AiServiceImpl implements AiService {
         this.chatClient = chatClient.build();//使用ChatClient.Builder构建一个ChatClient实例，用于调用AI服务
     }
 
+    /**
+     * 去掉推理模型输出里的思考过程。
+     * 正常输出形如 "&lt;think&gt;…&lt;/think&gt;答案"；
+     * 被截断时只剩半截 "&lt;think&gt;…没有结束标记"，这种情况答案本身就是空的。
+     */
+    private static String stripThinking(String text) {
+        String result = text.replaceAll("(?s)<think>.*?</think>", "").trim();
+        int idx = result.indexOf("<think>");
+        if (idx >= 0) {
+            result = result.substring(0, idx).trim();
+        }
+        return result;
+    }
+
     @Override
     public String chat(String prompt, String chatId) {//调用AI服务，传入用户消息和QQ号，返回AI回复
         // 身份问题直接返回固定台词，不经过模型
@@ -64,8 +78,14 @@ public class AiServiceImpl implements AiService {
                 return "喵？";
             }
 
-            //去掉首尾多余的空格和换行符
-            response = response.trim();
+            // deepseek-r1 是推理模型，回复里带着 <think>…</think> 思考过程，
+            // M6 版 Spring AI 不会自动剥离，必须自己去掉，否则群友会看到整段思考
+            response = stripThinking(response);
+
+            // 思考没结束就被 num-predict 截断时，剥离后可能什么都不剩
+            if (response.isEmpty()) {
+                return "喵？本喵走神了，再问一次好不好";
+            }
 
             // 模型还是自曝了身份，就替换成人设回答
             if (SELF_CLAIM.matcher(response).find()) {

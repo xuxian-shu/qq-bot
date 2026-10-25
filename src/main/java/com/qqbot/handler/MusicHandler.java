@@ -39,11 +39,13 @@ public class MusicHandler extends BotPlugin {
         String msg = event.getMessage();
         long groupId = event.getGroupId();
         long qq = event.getUserId();
-        String botQq = "3809681102";
+
+        // 动态获取机器人自己的 QQ 号，与 AiHandler/HelpHandler 保持一致，换号不用改代码
+        String atCode = "[CQ:at,qq=" + event.getSelfId() + "]";
 
         //判断是否是@我,并且包含点歌
-        if (msg.contains("[CQ:at,qq=" + botQq + "]")) {
-            String cleanMsg = msg.replace("[CQ:at,qq=" + botQq + "]", "").trim();
+        if (msg.contains(atCode)) {
+            String cleanMsg = msg.replace(atCode, "").trim();
 
             //判断是否是点歌
             if (cleanMsg.contains("点歌")) {

@@ -1,6 +1,5 @@
 package com.qqbot.service.impl;
 
-import ch.qos.logback.core.net.server.Client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.OkHttpClient;
@@ -14,17 +13,18 @@ import java.time.Duration;
 
 @Service
 public class WeatherServiceImpl implements WeatherService {
+
+    // OkHttpClient 内部有连接池和线程池，全局复用一个即可（与 MusicHandler 保持一致）
+    private static final OkHttpClient CLIENT = new OkHttpClient.Builder()
+            .callTimeout(Duration.ofSeconds(30))
+            .build();
+
+    // ObjectMapper 是线程安全的，全局复用一个即可
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
     @Override
     public String getNanJingForecast() throws IOException {
-        //1.创建一个HTTP客户端，一次请求最多等待三十秒
-        //OkHttpClient用于发送和接受http请求，callTimeout用于设置最长时间，超过会抛出异常
-        OkHttpClient client = new OkHttpClient.Builder()
-
-                .callTimeout(Duration.ofSeconds(30))
-                .build();
-
-
-        //2.南京未来三天天气查询地址
+        //1.查询地址：南京未来三天天气
         String url = "https://api.open-meteo.com/v1/forecast"
                 + "?latitude=32.06"
                 + "&longitude=118.79"
@@ -33,14 +33,14 @@ public class WeatherServiceImpl implements WeatherService {
                 + "&timezone=Asia%2FShanghai"
                 + "&forecast_days=3";
 
-        //3.构造GET请求
+        //2.构造GET请求
         Request request = new Request.Builder()
                 .get()
                 .url(url)
                 .build();
 
         //发送请求，使用完后自动关闭请求
-        try (Response response = client.newCall(request).execute()) {
+        try (Response response = CLIENT.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 throw new IOException("天气接口请求失败，HTTP 状态码："
                         + response.code());
@@ -53,10 +53,8 @@ public class WeatherServiceImpl implements WeatherService {
 
             //将响应内容读取成字符串，只读取一次
             String json = body.string();
-            //把json解析成可以按字段查询的结构
-            //解析成树形结构，这样每一行的值都可以取出来
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode root = objectMapper.readTree(json);
+            //把json解析成树形结构，这样每一行的值都可以取出来
+            JsonNode root = MAPPER.readTree(json);
 
             //获取daily对象，其中存放每天都预报
             JsonNode daily = root.get("daily");

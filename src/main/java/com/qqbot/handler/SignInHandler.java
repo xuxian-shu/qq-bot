@@ -46,11 +46,13 @@ public class SignInHandler extends BotPlugin {
         String msg = event.getMessage();//群聊消息
         long groupId = event.getGroupId();//群号
         long qq = event.getUserId();//用户QQ号
-        String botQq = "3809681102";
+
+        // 动态获取机器人自己的 QQ 号，与 AiHandler/HelpHandler 保持一致，换号不用改代码
+        String atCode = "[CQ:at,qq=" + event.getSelfId() + "]";
 
         //只要当消息包含了@机器人QQ号，才处理
-        if (msg.contains("[CQ:at,qq=" + botQq + "]")) {
-            String cleanMsg = msg.replace("[CQ:at,qq=" + botQq + "]", "").trim();//删除@机器人的代码
+        if (msg.contains(atCode)) {
+            String cleanMsg = msg.replace(atCode, "").trim();//删除@机器人的代码
 
             //如果是签到
             if ("签到".equals(cleanMsg)) {
