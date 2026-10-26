@@ -13,10 +13,10 @@ public class BotImageServiceImpl implements BotImageService {
      * 生成签到图片，并直接返回 QQ 可以识别的 CQ 码
      */
     @Override
-    public String generateSignCardCqCode(long qq, String nickname, int points) {
+    public String generateSignCardCqCode(long qq, String nickname, int points, String extraLine) {
         try {
             // 1. 调用底层工具类画图，拿到 byte[]
-            byte[] imageBytes = ImageUtils.generateCardBytes(qq, nickname, points);
+            byte[] imageBytes = ImageUtils.generateCardBytes(qq, nickname, points, extraLine);
 
             // 2. 转 Base64
             String base64Image = Base64.getEncoder().encodeToString(imageBytes);

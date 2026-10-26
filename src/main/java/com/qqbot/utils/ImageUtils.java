@@ -17,7 +17,7 @@ public class ImageUtils {
     /**
      * 生成签到卡片图片，返回 PNG 的字节数组
      */
-    public static byte[] generateCardBytes(long qq, String nickname, int points) throws Exception {
+    public static byte[] generateCardBytes(long qq, String nickname, int points, String extraLine) throws Exception {
         // 1. 读取底图
         InputStream bgStream = ImageUtils.class.getClassLoader().getResourceAsStream("test_image.jpg");
         if (bgStream == null) {
@@ -63,18 +63,23 @@ public class ImageUtils {
         g2d.setColor(new Color(0, 0, 0, 150));
         g2d.fillRoundRect(panelX, panelY, panelW, panelH, 20, 20);
 
-        // 6. 写文字（字号和内容按面板宽度自适应）
+        // 6. 写文字（三行：昵称 / 积分 / 连击信息，字号按面板宽度自适应；
+        // 三行把面板高度分成 32%/57%/82% 三个基线，行距比两行版略挤，字号相应调小）
         int textX = panelX + margin;
         int maxTextWidth = width - textX - margin;
-        int preferredFontSize = Math.max(12, Math.round(height * 0.13f));
-        int textY1 = panelY + Math.round(panelH * 0.42f);
-        int textY2 = panelY + Math.round(panelH * 0.82f);
+        int preferredFontSize = Math.max(12, Math.round(height * 0.11f));
+        int textY1 = panelY + Math.round(panelH * 0.32f);
+        int textY2 = panelY + Math.round(panelH * 0.57f);
+        int textY3 = panelY + Math.round(panelH * 0.82f);
 
         g2d.setColor(Color.WHITE);
         drawFittedText(g2d, "昵称: " + nickname, textX, textY1, maxTextWidth, preferredFontSize);
 
         g2d.setColor(new Color(255, 215, 0)); // 金色
         drawFittedText(g2d, "积分: " + points, textX, textY2, maxTextWidth, preferredFontSize);
+
+        g2d.setColor(Color.WHITE);
+        drawFittedText(g2d, extraLine, textX, textY3, maxTextWidth, preferredFontSize);
 
         // 7. 释放画笔
         g2d.dispose();

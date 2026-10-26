@@ -34,7 +34,8 @@ public class SignInHandler extends BotPlugin {
             // 私聊事件里能拿到发送者昵称；拿不到就传 null，由 Service 用默认称呼兜底
             var sender = event.getPrivateSender();
             String nickname = sender == null ? null : sender.getNickname();
-            String reply = signInService.signIn(qq, nickname);
+            // 私聊没有群，群号传 0
+            String reply = signInService.signIn(qq, nickname, 0L);
             bot.sendPrivateMsg(qq, reply, false);
         }
         return MESSAGE_IGNORE;
@@ -71,7 +72,7 @@ public class SignInHandler extends BotPlugin {
                             ? sender.getCard()
                             : sender.getNickname();
                 }
-                String reply = signInService.signIn(qq, nickname);
+                String reply = signInService.signIn(qq, nickname, groupId);
                 //返回群聊结果
                 bot.sendGroupMsg(groupId, reply, false);//发送签到结果给群聊
             }

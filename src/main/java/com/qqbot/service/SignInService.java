@@ -5,7 +5,8 @@ public interface SignInService {
      * 签到
      * @param qq       用户QQ号
      * @param nickname 用户昵称，用于在签到卡片上显示；为空时使用默认称呼
-     * @return 签到结果
+     * @param groupId  签到所在群号，私聊传 0；积分排行按群统计要用
+     * @return 签到结果（签到卡片 CQ 码）
      */
-    String signIn(long qq, String nickname);
+    String signIn(long qq, String nickname, long groupId);
 }
