@@ -11,10 +11,13 @@ public class WeatherApiDemo {
         // 创建天气服务
         WeatherService weatherService = new WeatherServiceImpl();
 
-        // 调用服务，获取中文预报
-        String forecast = weatherService.getNanJingForecast();
+        // 不带参数默认查南京，带城市名查对应城市
+        String nanjing = weatherService.getWeather(null);
+        System.out.println(nanjing);
 
-        // 打印返回结果
-        System.out.println(forecast);
+        System.out.println("----------");
+
+        String beijing = weatherService.getWeather("北京");
+        System.out.println(beijing);
     }
 }

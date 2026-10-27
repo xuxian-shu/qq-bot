@@ -4,7 +4,9 @@ import java.io.IOException;
 
 public interface WeatherService {
     /**
-     * 查询南京今日天气，返回中文预报
+     * 查询指定地点的当前天气
+     * @param location 地点名（如"上海"）；为空时默认查南京
+     * @return 天气播报文本
      */
-    String getNanJingForecast() throws IOException;
+    String getWeather(String location) throws IOException;
 }

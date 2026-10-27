@@ -42,3 +42,4 @@ shiro:
     - com.qqbot.handler.MusicHandler
     - com.qqbot.handler.HelpHandler
     - com.qqbot.handler.PointsHandler
+    - com.qqbot.handler.ReminderHandler
