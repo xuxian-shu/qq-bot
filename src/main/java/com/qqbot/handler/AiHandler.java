@@ -31,7 +31,8 @@ public class AiHandler extends BotPlugin {
         // 否则后面照样会调用 aiService.chat()，AI 还是会插嘴。
         if ("签到".equals(msg) || "hello".equals(msg) || "天气".equals(msg) || msg.startsWith("天气 ")
                 || "积分".equals(msg) || "积分排行".equals(msg)
-                || msg.startsWith("提醒我") || isHelpCommand(msg)) {
+                || msg.startsWith("提醒我") || msg.startsWith("答题") || "今日一题".equals(msg)
+                || isHelpCommand(msg)) {
             return MESSAGE_IGNORE;
         }
 
@@ -73,7 +74,8 @@ public class AiHandler extends BotPlugin {
             if ("签到".equals(cleanMsg) || "hello".equals(cleanMsg) || "积分".equals(cleanMsg)
                     || "积分排行".equals(cleanMsg) || cleanMsg.startsWith("点歌")
                     || cleanMsg.startsWith("提醒我") || "天气".equals(cleanMsg)
-                    || cleanMsg.startsWith("天气 ") || isHelpCommand(cleanMsg)) {
+                    || cleanMsg.startsWith("天气 ") || cleanMsg.startsWith("答题")
+                    || "今日一题".equals(cleanMsg) || isHelpCommand(cleanMsg)) {
                 return MESSAGE_IGNORE;
             }
 
