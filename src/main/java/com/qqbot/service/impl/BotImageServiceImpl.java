@@ -5,6 +5,7 @@ import com.qqbot.utils.ImageUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.Base64;
+import java.util.List;
 
 @Service
 public class BotImageServiceImpl implements BotImageService {
@@ -26,6 +27,22 @@ public class BotImageServiceImpl implements BotImageService {
         } catch (Exception e) {
             e.printStackTrace();
             return "图片生成失败啦，请联系管理员喵~";
+        }
+    }
+
+    /**
+     * 生成今日运势卡片；失败返回 null，让 Handler 退回纯文字，
+     * 不像签到那样返回错误文案（运势本身不依赖图片，图片只是锦上添花）
+     */
+    @Override
+    public String generateFortuneCardCqCode(long qq, String nickname, String title,
+                                            String tier, String scoreText, List<String> lines) {
+        try {
+            byte[] imageBytes = ImageUtils.generateFortuneCardBytes(qq, nickname, title, tier, scoreText, lines);
+            return "[CQ:image,file=base64://" + Base64.getEncoder().encodeToString(imageBytes) + "]";
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
     }
 }
