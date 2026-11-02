@@ -1,5 +1,7 @@
 package com.qqbot.service;
 
+import com.qqbot.utils.ImageUtils;
+
 import java.util.List;
 
 public interface BotImageService {
@@ -20,4 +22,13 @@ public interface BotImageService {
      */
     String generateFortuneCardCqCode(long qq, String nickname, String title,
                                      String tier, String scoreText, List<String> lines);
+
+    /**
+     * 生成使用说明书卡片，返回 CQ 码；生成失败返回 null，由调用方退回纯文字
+     *
+     * @param header   卡片顶部的欢迎语
+     * @param sections 各小节（标题 + 正文行）
+     * @param footer   卡片结尾的一句话
+     */
+    String generateHelpCardCqCode(String header, List<ImageUtils.HelpSection> sections, String footer);
 }

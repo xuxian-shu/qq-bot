@@ -11,6 +11,7 @@ import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -221,6 +222,175 @@ public class ImageUtils {
             case "凶" -> new Color(230, 90, 90);
             default -> Color.WHITE;
         };
+    }
+
+    /**
+     * 帮助卡片的一节：小节标题 + 若干行正文
+     */
+    public record HelpSection(String title, List<String> lines) {
+    }
+
+    // 帮助卡片的配色：标题蓝灰、小节标题蓝色、小节左侧粉色竖条、正文深灰
+    private static final Color HELP_HEADER_COLOR = new Color(61, 74, 108);
+    private static final Color HELP_TITLE_COLOR = new Color(44, 88, 148);
+    private static final Color HELP_BAR_COLOR = new Color(255, 122, 156);
+    private static final Color HELP_BODY_COLOR = new Color(66, 66, 66);
+    private static final Color HELP_FOOTER_COLOR = new Color(120, 120, 120);
+
+    /**
+     * 生成使用说明书图片，返回 PNG 的字节数组。
+     * 底图 help_bg.jpg 等比放大裁切铺满画布，再压一层半透明白把颜色冲淡，
+     * 这样深色文字落在浅底上才看得清。
+     *
+     * @param header   卡片顶部的欢迎语
+     * @param sections 各小节（标题 + 正文行）
+     * @param footer   卡片结尾的一句话
+     */
+    public static byte[] generateHelpCardBytes(String header, List<HelpSection> sections, String footer) throws Exception {
+        InputStream bgStream = ImageUtils.class.getClassLoader().getResourceAsStream("help_bg.jpg");
+        if (bgStream == null) {
+            throw new RuntimeException("找不到 help_bg.jpg，请检查是否放在了 src/main/resources 目录下！");
+        }
+
+        BufferedImage background;
+        try (InputStream in = bgStream) {
+            background = ImageIO.read(in);
+        }
+        if (background == null) {
+            throw new RuntimeException("help_bg.jpg 无法解析，请确认它是有效的图片文件！");
+        }
+
+        int width = 900;
+        int pad = 40;
+        int contentWidth = width - pad * 2;
+
+        // 1. 文字内容长度不固定，先用一张 1x1 的假画布量一遍，算出整张图要多高
+        Graphics2D measurer = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB).createGraphics();
+        int height;
+        try {
+            height = layoutHelpText(measurer, pad, false, header, sections, footer, contentWidth) + pad;
+        } finally {
+            measurer.dispose();
+        }
+
+        BufferedImage canvas = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = canvas.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+        // 2. 底图按“ cover”方式画上去：等比放大到两个方向都不小于画布，再居中裁掉多余部分
+        double scale = Math.max((double) width / background.getWidth(), (double) height / background.getHeight());
+        BufferedImage scaled = Thumbnails.of(background).scale(scale).asBufferedImage();
+        int cutX = (scaled.getWidth() - width) / 2;
+        int cutY = (scaled.getHeight() - height) / 2;
+        g2d.drawImage(scaled, 0, 0, width, height, cutX, cutY, cutX + width, cutY + height, null);
+
+        // 3. 压一层半透明白，把底图颜色冲淡（数字越大越"浅"，字越好认）
+        g2d.setColor(new Color(255, 255, 255, 175));
+        g2d.fillRect(0, 0, width, height);
+
+        // 4. 画文字，排版逻辑和量高度时完全同一份代码，不会算错位
+        layoutHelpText(g2d, pad, true, header, sections, footer, contentWidth);
+
+        g2d.dispose();
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageIO.write(canvas, "png", baos);
+        return baos.toByteArray();
+    }
+
+    /**
+     * 帮助卡片文字排版：draw=false 只往下推 y 坐标用来量总高度，draw=true 才真正落字。
+     * 两种情况走的是同一套行距计算，所以量出来的高度和画出来的位置永远一致。
+     *
+     * @return 排版结束后的 y 坐标
+     */
+    private static int layoutHelpText(Graphics2D g2d, int startY, boolean draw,
+                                      String header, List<HelpSection> sections, String footer, int contentWidth) {
+        int pad = 26; // 内容区左右共同的内边距由调用方减掉，这里再往里收一点
+        int y = startY;
+
+        // 顶部欢迎语
+        Font headerFont = new Font("微软雅黑", Font.BOLD, 30);
+        FontMetrics fmHeader = g2d.getFontMetrics(headerFont);
+        for (String line : wrapText(g2d, header == null ? "" : header, headerFont, contentWidth - pad)) {
+            if (draw) {
+                g2d.setFont(headerFont);
+                g2d.setColor(HELP_HEADER_COLOR);
+                g2d.drawString(line, 26 + pad, y + fmHeader.getAscent());
+            }
+            y += fmHeader.getHeight() + 4;
+        }
+
+        Font titleFont = new Font("微软雅黑", Font.BOLD, 21);
+        Font bodyFont = new Font("微软雅黑", Font.PLAIN, 17);
+        FontMetrics fmTitle = g2d.getFontMetrics(titleFont);
+        FontMetrics fmBody = g2d.getFontMetrics(bodyFont);
+
+        for (HelpSection section : sections) {
+            y += 20; // 小节之间留一段空隙
+
+            // 小节标题：左边一根粉色圆角竖条
+            if (draw) {
+                g2d.setColor(HELP_BAR_COLOR);
+                g2d.fillRoundRect(26, y + 2, 6, fmTitle.getHeight() - 4, 6, 6);
+                g2d.setFont(titleFont);
+                g2d.setColor(HELP_TITLE_COLOR);
+                g2d.drawString(section.title(), 26 + pad, y + fmTitle.getAscent());
+            }
+            y += fmTitle.getHeight() + 6;
+
+            // 正文行，超宽的自动换行（中文没有空格，按字宽一点点累加）
+            for (String line : section.lines()) {
+                for (String wrapped : wrapText(g2d, line, bodyFont, contentWidth - pad)) {
+                    if (draw) {
+                        g2d.setFont(bodyFont);
+                        g2d.setColor(HELP_BODY_COLOR);
+                        g2d.drawString(wrapped, 26 + pad, y + fmBody.getAscent());
+                    }
+                    y += fmBody.getHeight() + 5;
+                }
+            }
+        }
+
+        // 结尾一句话
+        y += 14;
+        Font footerFont = new Font("微软雅黑", Font.PLAIN, 15);
+        FontMetrics fmFooter = g2d.getFontMetrics(footerFont);
+        for (String line : wrapText(g2d, footer == null ? "" : footer, footerFont, contentWidth - pad)) {
+            if (draw) {
+                g2d.setFont(footerFont);
+                g2d.setColor(HELP_FOOTER_COLOR);
+                g2d.drawString(line, 26 + pad, y + fmFooter.getAscent());
+            }
+            y += fmFooter.getHeight();
+        }
+
+        return y;
+    }
+
+    /**
+     * 按像素宽度把一行文字折成多行，中文逐字累加宽度，不依赖空格
+     */
+    private static List<String> wrapText(Graphics2D g2d, String text, Font font, int maxWidth) {
+        FontMetrics fm = g2d.getFontMetrics(font);
+        List<String> result = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        for (int i = 0; i < text.length(); ) {
+            int codePoint = text.codePointAt(i);
+            String ch = new String(Character.toChars(codePoint));
+            // 当前行还没内容时先放一个字符，避免窄字符死循环
+            if (current.length() > 0 && fm.stringWidth(current + ch) > maxWidth) {
+                result.add(current.toString());
+                current.setLength(0);
+            }
+            current.append(ch);
+            i += Character.charCount(codePoint);
+        }
+        if (current.length() > 0) {
+            result.add(current.toString());
+        }
+        return result;
     }
 
     /**

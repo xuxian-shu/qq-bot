@@ -2,6 +2,7 @@ package com.qqbot.service.impl;
 
 import com.qqbot.service.BotImageService;
 import com.qqbot.utils.ImageUtils;
+import com.qqbot.utils.ImageUtils.HelpSection;
 import org.springframework.stereotype.Service;
 
 import java.util.Base64;
@@ -39,6 +40,20 @@ public class BotImageServiceImpl implements BotImageService {
                                             String tier, String scoreText, List<String> lines) {
         try {
             byte[] imageBytes = ImageUtils.generateFortuneCardBytes(qq, nickname, title, tier, scoreText, lines);
+            return "[CQ:image,file=base64://" + Base64.getEncoder().encodeToString(imageBytes) + "]";
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * 生成使用说明书卡片；失败返回 null，让 HelpHandler 退回纯文字
+     */
+    @Override
+    public String generateHelpCardCqCode(String header, List<HelpSection> sections, String footer) {
+        try {
+            byte[] imageBytes = ImageUtils.generateHelpCardBytes(header, sections, footer);
             return "[CQ:image,file=base64://" + Base64.getEncoder().encodeToString(imageBytes) + "]";
         } catch (Exception e) {
             e.printStackTrace();
