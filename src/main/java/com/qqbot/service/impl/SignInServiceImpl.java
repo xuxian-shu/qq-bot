@@ -66,7 +66,12 @@ public class SignInServiceImpl implements SignInService {
             user.setPoints(0);
             user.setNickname(displayName);
             user.setCreateTime(LocalDateTime.now());
-            userMapper.insert(user);
+            try {
+                userMapper.insert(user);
+            } catch (DuplicateKeyException e) {
+                // user.qq 有唯一索引时，并发首次签到可能两个线程同时建档，
+                // 第二个插入会撞索引。忽略即可，后面的积分操作按 qq 走，不依赖自增 id
+            }
         }
 
         // 3. 计算连击：昨天签过 → 上次连击天数 +1；断签或首次签到就重置为 1

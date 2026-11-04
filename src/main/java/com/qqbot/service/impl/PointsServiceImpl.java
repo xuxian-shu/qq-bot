@@ -8,8 +8,10 @@ import com.qqbot.mapper.SignInrecordMapper;
 import com.qqbot.mapper.UserMapper;
 import com.qqbot.service.PointsService;
 import jakarta.annotation.Resource;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -37,6 +39,42 @@ public class PointsServiceImpl implements PointsService {
 
         User user = userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getQq, qq));
         return user == null ? 0 : user.getPoints();
+    }
+
+    @Override
+    public boolean registerIfAbsent(long qq, String nickname, int initialPoints) {
+        // LIMIT 1 兜底：万一 user 表没建 qq 唯一索引、历史数据有重复，也不会抛 TooManyResults
+        User existing = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getQq, qq)
+                .last("LIMIT 1"));
+        if (existing != null) {
+            return false;
+        }
+
+        User user = new User();
+        user.setQq(qq);
+        user.setNickname(nickname == null || nickname.isBlank() ? "群友" : nickname.trim());
+        user.setPoints(Math.max(initialPoints, 0));
+        user.setCreateTime(LocalDateTime.now());
+        try {
+            userMapper.insert(user);
+            return true;
+        } catch (DuplicateKeyException e) {
+            // 并发下别的线程已经建档，本次不重复送分
+            return false;
+        }
+    }
+
+    @Override
+    public long deductPoints(long qq, int delta) {
+        if (delta <= 0) {
+            return getPoints(qq);
+        }
+        // GREATEST 保证扣到 0 就停，避免用户积分为负
+        userMapper.update(null, new LambdaUpdateWrapper<User>()
+                .setSql("points = GREATEST(points - " + delta + ", 0)")
+                .eq(User::getQq, qq));
+        return getPoints(qq);
     }
 
     @Override
