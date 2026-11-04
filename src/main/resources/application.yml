@@ -37,9 +37,15 @@ shiro:
   plugin-list:
     - com.qqbot.plugin.TestPlugin
     - com.qqbot.handler.WeatherHandler
+    - com.qqbot.handler.FortuneHandler
     - com.qqbot.handler.SignInHandler
     - com.qqbot.handler.AiHandler
     - com.qqbot.handler.MusicHandler
     - com.qqbot.handler.HelpHandler
     - com.qqbot.handler.PointsHandler
     - com.qqbot.handler.ReminderHandler
+    - com.qqbot.handler.QuizHandler
+
+# 每日一题推送的目标群号（改成你自己的群，0 = 不推送）
+quiz:
+  group-id: 0
