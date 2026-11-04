@@ -5,8 +5,10 @@ import com.mikuac.shiro.core.BotPlugin;
 import com.mikuac.shiro.dto.event.message.GroupMessageEvent;
 import com.mikuac.shiro.dto.event.message.PrivateMessageEvent;
 import com.qqbot.exception.BusinessException;
+import com.qqbot.exception.BusinessTimeoutException;
 import com.qqbot.service.AiService;
 import com.qqbot.service.CooldownService;
+import com.qqbot.utils.TimeLimitUtil;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -118,8 +120,14 @@ public class AiHandler extends BotPlugin {
         try {
             aiChatExecutor.execute(() -> {
                 try {
-                    String reply = aiService.chat(msg, chatId);
+                    // 看门狗：本地 Ollama 超过 10 秒直接中断，防止任务卡死线程池
+                    String reply = TimeLimitUtil.call("ai-chat", 10,
+                            () -> aiService.chat(msg, chatId));
                     sendReply(bot, groupId, qq, reply);
+                } catch (BusinessTimeoutException e) {
+                    // 超时：只回超时提示，不再等 AI 的返回
+                    log.warn("AI 聊天超时(10s)：qq={}, msg={}", qq, msg);
+                    sendReply(bot, groupId, qq, "AI大脑烧糊了，回答超时啦~");
                 } catch (Exception e) {
                     // 异步线程里抛异常没人接，必须自己兜底，否则用户永远等不到回复
                     log.error("AI 聊天任务执行失败：qq={}, msg={}", qq, msg, e);

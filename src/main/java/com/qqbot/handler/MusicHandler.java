@@ -8,6 +8,8 @@ import com.mikuac.shiro.core.Bot;
 import com.mikuac.shiro.core.BotPlugin;
 import com.mikuac.shiro.dto.event.message.GroupMessageEvent;
 import com.mikuac.shiro.model.ArrayMsg;
+import com.qqbot.exception.BusinessTimeoutException;
+import com.qqbot.utils.TimeLimitUtil;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -27,8 +29,11 @@ public class MusicHandler extends BotPlugin {
 
     // OkHttpClient 要复用（内部有连接池），顺便设置超时，避免接口卡死整个 bot
     private static final OkHttpClient CLIENT = new OkHttpClient.Builder()
-            .connectTimeout(5, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(2, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            // OkHttp 的阻塞读不响应线程中断，callTimeout 才是网络层的硬停：
+            // 看门狗负责整体 5 秒预算，这一行保证超时后连接真的被关掉
+            .callTimeout(5, TimeUnit.SECONDS)
             .build();
 
     private static final String VKEYS_API = "https://api.vkeys.cn/v2/music/tencent";
@@ -56,8 +61,15 @@ public class MusicHandler extends BotPlugin {
                     return MESSAGE_IGNORE;
                 }
 
-                //调用音乐服务，播放音乐
-                MusicResult result = searchMusic(songName);
+                // 看门狗：第三方音乐接口整体最多等 5 秒，超时中断并回复用户
+                MusicResult result;
+                try {
+                    result = TimeLimitUtil.call("music", 5, () -> searchMusic(songName));
+                } catch (BusinessTimeoutException e) {
+                    System.err.println("点歌接口超时: " + songName);
+                    bot.sendGroupMsg(groupId, "点歌接口卡住啦，请稍后再试喵~", false);
+                    return MESSAGE_IGNORE;
+                }
                 if (result == null) {
                     bot.sendGroupMsg(groupId, "没有找到这首歌喵！", false);//发送提示消息给群聊
                 } else {
