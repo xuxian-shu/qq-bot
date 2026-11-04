@@ -25,6 +25,8 @@ spring:
 server:
   port: 8080
 shiro:
+  # 全局消息拦截器：敏感词命中时在插件分发前直接撤回并阻断
+  interceptor: com.qqbot.moderation.SensitiveWordInterceptor
   # 反向 WebSocket：本项目做服务端，等 NapCat 连过来
   ws:
     server:
@@ -45,7 +47,51 @@ shiro:
     - com.qqbot.handler.PointsHandler
     - com.qqbot.handler.ReminderHandler
     - com.qqbot.handler.QuizHandler
+    - com.qqbot.handler.WelcomeHandler
+    - com.qqbot.handler.TopicChatHandler
 
 # 每日一题推送的目标群号（改成你自己的群，0 = 不推送）
 quiz:
   group-id: 0
+
+# 新人欢迎与破冰奖励
+welcome:
+  enabled: true
+  initial-points: 10        # 首次入群建档赠送
+  intro-points: 10          # 破冰奖励
+  intro-hours: 24           # 入群后多久内发自我介绍有效
+  intro-min-length: 10      # 自我介绍最少可见字数
+
+# 敏感词风控（词库存 MySQL 的 sensitive_word 表，定时刷新到内存）
+moderation:
+  enabled: true
+  deduct-points: 5          # 每次违规扣分，最低扣到 0
+  mute-seconds: 600         # 第 2 次违规禁言 10 分钟
+  long-mute-seconds: 3600   # 第 3 次及以后禁言 1 小时
+  offense-window-hours: 24  # 违规次数统计窗口
+  exempt-admins: true       # 群主/管理员豁免
+  reload-ms: 60000          # 词库刷新间隔
+
+# 主动交互：冷场唤醒 + 话题接茬
+# 防自循环：SensitiveWordInterceptor 在分发入口统一阻断机器人自己的消息，
+# 主动发言不会回流触发各 Handler
+proactive:
+  # 冷场唤醒：定时检查群最后一条人类发言，沉默太久就丢一条唤醒文案（不走 AI）
+  awake:
+    enabled: true
+    silence-hours: 2          # 多久没人说话算冷场
+    check-ms: 600000          # 每 10 分钟检查一轮
+    cooldown-hours: 1         # 每群频控：每小时最多主动喊话 1 次
+    max-consecutive: 3        # 同一段冷场最多连喊 3 次，群真死了就别追着说话
+    quiet-start-hour: 23      # 静默时段起：23 点后不吵人
+    quiet-end-hour: 8         # 静默时段止：早 8 点前不吵人
+  # 话题接茬：有人不带@地说触发词，按概率让 AI 结合群聊上下文插一句
+  topic:
+    enabled: true
+    keywords: 好无聊啊,好无聊,有没有人打游戏,今天吃什么,摸鱼,休息日干什么
+    chance: 0.3               # 命中关键词也只有 30% 概率接话，模拟真人看心情
+    group-cooldown-seconds: 3600  # 同群 1 小时内最多接茬 1 次
+    user-cooldown-seconds: 600    # 同一个人 10 分钟内最多接 1 次
+    context-size: 10          # 接茬时喂给 AI 的最近消息条数
+  # 每群聊天日志缓冲条数（接茬上下文 / 未来群日报共用）
+  log-size: 100

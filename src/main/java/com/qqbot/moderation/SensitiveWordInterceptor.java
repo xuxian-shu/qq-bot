@@ -5,6 +5,7 @@ import com.mikuac.shiro.core.BotMessageEventInterceptor;
 import com.mikuac.shiro.dto.action.common.ActionRaw;
 import com.mikuac.shiro.dto.event.message.GroupMessageEvent;
 import com.mikuac.shiro.dto.event.message.MessageEvent;
+import com.qqbot.service.ChatActivityService;
 import com.qqbot.service.PointsService;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
@@ -22,6 +23,11 @@ import java.util.concurrent.TimeUnit;
  * preHandle 返回 false 表示拦截，后续 BotPlugin（包括 AI）都不会收到这条消息。
  * <p>
  * 只处理群聊；私聊直接放行。风控自身异常时选择“放行”，避免组件故障导致机器人整体不响应。
+ * <p>
+ * 除风控外还承担两个全局职责（因为这是插件分发前唯一的统一入口）：
+ * ①机器人自身消息在这里直接 return false 阻断——主动发言（冷场唤醒/话题接茬）
+ * 的防死循环不能靠各插件自觉，必须掐在源头；
+ * ②人类群消息的活跃度记录（时间戳+聊天日志），供冷场唤醒等功能消费。
  */
 @Component
 public class SensitiveWordInterceptor implements BotMessageEventInterceptor {
@@ -37,6 +43,9 @@ public class SensitiveWordInterceptor implements BotMessageEventInterceptor {
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private ChatActivityService chatActivityService;
 
     @Value("${moderation.enabled:true}")
     private boolean enabled;
@@ -58,18 +67,31 @@ public class SensitiveWordInterceptor implements BotMessageEventInterceptor {
 
     @Override
     public boolean preHandle(Bot bot, MessageEvent event) {
-        if (!enabled || !(event instanceof GroupMessageEvent groupEvent)) {
+        if (!(event instanceof GroupMessageEvent groupEvent)) {
             return true;
         }
 
         Long groupId = groupEvent.getGroupId();
         Long userId = groupEvent.getUserId();
         String message = groupEvent.getMessage();
+
+        // 防"自言自语"死循环第一铁律：机器人自己的消息在分发入口直接阻断，
+        // 任何插件都不会收到它。冷场唤醒/话题接茬主动发出的消息若回流再触发
+        // 处理器，就会无限循环刷屏。这里 return false 是一劳永逸的源头防线。
+        if (groupEvent.getSelfId() != null && groupEvent.getSelfId().equals(userId)) {
+            return false;
+        }
+
         if (groupId == null || userId == null || message == null || message.isBlank()) {
             return true;
         }
-        // 机器人自己发的消息不处理，避免自己撤回自己
-        if (groupEvent.getSelfId() != null && groupEvent.getSelfId().equals(userId)) {
+
+        // 活跃度记录：每条人类群消息刷时间戳、进聊天日志。
+        // 放在风控开关之前：就算关了敏感词风控，冷场唤醒等仍要有数据。
+        // 实现内部吞掉所有异常，Redis 故障不会掐断消息链路
+        chatActivityService.recordGroupMessage(groupId, userId, message);
+
+        if (!enabled) {
             return true;
         }
 
