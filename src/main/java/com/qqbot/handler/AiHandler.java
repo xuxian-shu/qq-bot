@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
+import static com.qqbot.handler.BiliHandler.isBiliCommand;
 import static com.qqbot.handler.FortuneHandler.isFortuneCommand;
 import static com.qqbot.handler.HelpHandler.isHelpCommand;
 
@@ -46,7 +47,7 @@ public class AiHandler extends BotPlugin {
         if ("签到".equals(msg) || "hello".equals(msg) || "天气".equals(msg) || msg.startsWith("天气 ")
                 || "积分".equals(msg) || "积分排行".equals(msg)
                 || msg.startsWith("提醒我") || msg.startsWith("答题") || "今日一题".equals(msg)
-                || isFortuneCommand(msg) || isHelpCommand(msg)) {
+                || isFortuneCommand(msg) || isHelpCommand(msg) || isBiliCommand(msg)) {
             return MESSAGE_IGNORE;
         }
 
@@ -91,7 +92,7 @@ public class AiHandler extends BotPlugin {
                     || cleanMsg.startsWith("提醒我") || "天气".equals(cleanMsg)
                     || cleanMsg.startsWith("天气 ") || cleanMsg.startsWith("答题")
                     || "今日一题".equals(cleanMsg) || isFortuneCommand(cleanMsg)
-                    || isHelpCommand(cleanMsg)) {
+                    || isHelpCommand(cleanMsg) || isBiliCommand(cleanMsg)) {
                 return MESSAGE_IGNORE;
             }
 

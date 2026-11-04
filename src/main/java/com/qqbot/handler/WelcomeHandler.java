@@ -169,7 +169,8 @@ public class WelcomeHandler extends BotPlugin {
                 || "天气".equals(text) || text.startsWith("天气 ")
                 || text.startsWith("答题") || "今日一题".equals(text)
                 || "今日运势".equals(text) || "运势".equals(text) || "求签".equals(text)
-                || "帮助".equals(text) || "指南".equals(text) || "菜单".equals(text);
+                || "帮助".equals(text) || "指南".equals(text) || "菜单".equals(text)
+                || BiliHandler.isBiliCommand(text);
     }
 
     /** 只统计字母和数字（中文算字母），排除纯表情、标点、空白 */

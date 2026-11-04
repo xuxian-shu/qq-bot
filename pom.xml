@@ -92,6 +92,18 @@
             <version>4.12.0</version>
         </dependency>
 
+        <!-- 7.1 二维码生成：B站扫码登录用（core 负责编码，javase 负责出 PNG） -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>3.5.3</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>3.5.3</version>
+        </dependency>
+
         <!-- 8. 工具类：Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

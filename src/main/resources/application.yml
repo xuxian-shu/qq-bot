@@ -49,6 +49,7 @@ shiro:
     - com.qqbot.handler.QuizHandler
     - com.qqbot.handler.WelcomeHandler
     - com.qqbot.handler.TopicChatHandler
+    - com.qqbot.handler.BiliHandler
 
 # 每日一题推送的目标群号（改成你自己的群，0 = 不推送）
 quiz:
@@ -95,3 +96,11 @@ proactive:
     context-size: 10          # 接茬时喂给 AI 的最近消息条数
   # 每群聊天日志缓冲条数（接茬上下文 / 未来群日报共用）
   log-size: 100
+
+# B站助手：扫码绑定后以用户身份调用B站接口
+# 登录态只存 Redis（bili:user:{qq}），绝不写进本文件，更不要提交到 Git
+bili:
+  qr-timeout-seconds: 200   # 扫码轮询最长等待（B站二维码约 3 分钟过期）
+  poll-interval-ms: 2000    # 轮询间隔
+  report:
+    enabled: true           # 每天 20:00 给绑定的 UP 主推数据日报（群绑定回群、私聊绑定回私聊）
