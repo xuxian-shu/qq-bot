@@ -4,9 +4,13 @@ import com.mikuac.shiro.core.Bot;
 import com.mikuac.shiro.core.BotPlugin;
 import com.mikuac.shiro.dto.event.message.GroupMessageEvent;
 import com.mikuac.shiro.dto.event.message.PrivateMessageEvent;
+import com.qqbot.exception.BusinessException;
 import com.qqbot.service.BotImageService;
 import com.qqbot.service.CooldownService;
 import jakarta.annotation.Resource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -25,6 +29,8 @@ import java.util.Random;
  */
 @Component
 public class FortuneHandler extends BotPlugin {
+
+    private static final Logger log = LoggerFactory.getLogger(FortuneHandler.class);
 
     /**
      * 运势等级：roll 落在 upperBound 以内即命中，概率合计 100%。
@@ -109,6 +115,10 @@ public class FortuneHandler extends BotPlugin {
     @Resource
     private CooldownService cooldownService;
 
+    // 画图专用池：AWT 生成卡片很吃 CPU，不能占用主线程
+    @Resource(name = "imageExecutor")
+    private ThreadPoolTaskExecutor imageExecutor;
+
     /**
      * 是不是运势指令。做成 public static 方便 AiHandler 复用，
      * 以后加词只改这一处
@@ -180,22 +190,40 @@ public class FortuneHandler extends BotPlugin {
     }
 
     /**
-     * 生成运势并按 groupId 路由发送（>0 群聊，否则私聊）
+     * 生成运势并按 groupId 路由发送（>0 群聊，否则私聊）。
+     * <p>
+     * 抽签本身很便宜，在主线程算完；只有耗 CPU 的画图丢进 imageExecutor。
+     * 文字版也在主线程先拼好，画图失败或被拒时直接拿来兜底。
      */
     private void sendFortune(Bot bot, long qq, String nickname, long groupId) {
         String name = (nickname == null || nickname.isBlank()) ? "群友" : nickname.trim();
         Fortune f = generate(qq, LocalDate.now());
+        String title = "今日运势 · " + dateText(f.date());
+        List<String> lines = cardLines(f);
+        String fallback = textReply(f, name);
 
-        String message = botImageService.generateFortuneCardCqCode(
-                qq, name, "今日运势 · " + dateText(f.date()), f.tier(),
-                "运势指数 " + f.score(), cardLines(f));
-
-        // 卡片生成失败（服务器缺字体、头像接口超时等）就退回纯文字，
-        // 运势本身不依赖图片，保证用户一定有得看
-        if (message == null) {
-            message = textReply(f, name);
+        try {
+            imageExecutor.execute(() -> {
+                try {
+                    String message = botImageService.generateFortuneCardCqCode(
+                            qq, name, title, f.tier(), "运势指数 " + f.score(), lines);
+                    // 卡片生成失败（缺字体、头像接口超时等）就退回纯文字
+                    sendReply(bot, groupId, qq, message == null ? fallback : message);
+                } catch (Exception e) {
+                    // 异步线程里抛异常没人接，这里必须自己兜底
+                    log.error("运势卡片生成失败：qq={}", qq, e);
+                    sendReply(bot, groupId, qq, fallback);
+                }
+            });
+        } catch (BusinessException e) {
+            // 画图线程池已满，主线程直接发降级提示
+            log.warn("运势卡片线程池已满，降级提示：qq={}", qq);
+            sendReply(bot, groupId, qq, e.getMessage());
         }
+    }
 
+    /** groupId > 0 走群聊，否则走私聊 */
+    private void sendReply(Bot bot, long groupId, long qq, String message) {
         if (groupId > 0) {
             bot.sendGroupMsg(groupId, message, false);
         } else {

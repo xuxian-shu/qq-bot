@@ -4,9 +4,13 @@ import com.mikuac.shiro.core.Bot;
 import com.mikuac.shiro.core.BotPlugin;
 import com.mikuac.shiro.dto.event.message.GroupMessageEvent;
 import com.mikuac.shiro.dto.event.message.PrivateMessageEvent;
+import com.qqbot.exception.BusinessException;
 import com.qqbot.service.AiService;
 import com.qqbot.service.CooldownService;
 import jakarta.annotation.Resource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
 import static com.qqbot.handler.FortuneHandler.isFortuneCommand;
@@ -14,10 +18,17 @@ import static com.qqbot.handler.HelpHandler.isHelpCommand;
 
 @Component
 public class AiHandler extends BotPlugin {
+
+    private static final Logger log = LoggerFactory.getLogger(AiHandler.class);
+
     @Resource
     private AiService aiService;
     @Resource
     private CooldownService cooldownService;//注入冷却服务
+
+    // AI 聊天专用池：和签到/查积分等快业务隔离，慢业务卡死也不影响主线程
+    @Resource(name = "aiChatExecutor")
+    private ThreadPoolTaskExecutor aiChatExecutor;
 
     //1.处理私聊消息
     @Override
@@ -43,8 +54,8 @@ public class AiHandler extends BotPlugin {
             return MESSAGE_IGNORE;
         }
 
-        String reply = aiService.chat(msg, String.valueOf(qq));//调用AI服务，传入用户消息和QQ号，返回AI回复
-        bot.sendPrivateMsg(qq, reply, false);//发送AI回复给用户
+        // 慢业务丢线程池，主线程立刻返回，不阻塞其他消息
+        submitAiChat(bot, 0, qq, msg, String.valueOf(qq));
         return MESSAGE_IGNORE;
     }
 
@@ -88,11 +99,46 @@ public class AiHandler extends BotPlugin {
                 return MESSAGE_IGNORE;
             }
 
-            //发送AI回复,群聊ID+用户QQ号，作为chatId
-            String reply = aiService.chat(cleanMsg, groupId + "_" + qq);//群聊ID+用户QQ号，作为chatId
-            bot.sendGroupMsg(groupId, reply, false);//发送AI回复给群聊
+            // 慢业务丢线程池，chatId 用「群号_QQ号」保持上下文隔离
+            submitAiChat(bot, groupId, qq, cleanMsg, groupId + "_" + qq);
         }
         return MESSAGE_IGNORE;
     }
 
+    /**
+     * 把 AI 聊天提交到独立线程池。
+     * <p>
+     * 这里必须用 execute() 而不是 submit()：池子满时自定义拒绝策略抛出的
+     * BusinessException 会同步抛回当前线程，能立刻给用户降级提示；
+     * submit() 会把它包进 Future，异常就石沉大海了。
+     * <p>
+     * 注意：入参全部是基本类型，不要把 Shiro 的 event 带进异步线程。
+     */
+    private void submitAiChat(Bot bot, long groupId, long qq, String msg, String chatId) {
+        try {
+            aiChatExecutor.execute(() -> {
+                try {
+                    String reply = aiService.chat(msg, chatId);
+                    sendReply(bot, groupId, qq, reply);
+                } catch (Exception e) {
+                    // 异步线程里抛异常没人接，必须自己兜底，否则用户永远等不到回复
+                    log.error("AI 聊天任务执行失败：qq={}, msg={}", qq, msg, e);
+                    sendReply(bot, groupId, qq, "本王脑袋卡壳了，稍后再试试喵~");
+                }
+            });
+        } catch (BusinessException e) {
+            // 线程池已满：主线程直接降级回复，不再调用 Ollama
+            log.warn("AI 聊天线程池已满，降级提示：qq={}", qq);
+            sendReply(bot, groupId, qq, e.getMessage());
+        }
+    }
+
+    /** groupId > 0 走群聊，否则走私聊（与 FortuneHandler 约定一致） */
+    private void sendReply(Bot bot, long groupId, long qq, String reply) {
+        if (groupId > 0) {
+            bot.sendGroupMsg(groupId, reply, false);
+        } else {
+            bot.sendPrivateMsg(qq, reply, false);
+        }
+    }
 }
