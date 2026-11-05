@@ -120,17 +120,11 @@ public class FortuneHandler extends BotPlugin {
     private ThreadPoolTaskExecutor imageExecutor;
 
     /**
-     * 是不是运势指令。做成 public static 方便 AiHandler 复用，
-     * 以后加词只改这一处
+     * 是不是运势指令。词表在 {@link com.qqbot.command.CommandWords#isFortune}，
+     * 本方法只是内部用的转发；加词请改 CommandWords，全机器人自动生效。
      */
     public static boolean isFortuneCommand(String msg) {
-        if (msg == null) {
-            return false;
-        }
-        String text = msg.trim();
-        return "今日运势".equals(text)
-                || "运势".equals(text)
-                || "求签".equals(text);
+        return com.qqbot.command.CommandWords.isFortune(msg);
     }
 
     //私聊：今日运势

@@ -4,6 +4,7 @@ import com.mikuac.shiro.core.Bot;
 import com.mikuac.shiro.core.BotPlugin;
 import com.mikuac.shiro.dto.event.message.GroupMessageEvent;
 import com.mikuac.shiro.dto.event.notice.GroupIncreaseNoticeEvent;
+import com.qqbot.command.CommandWords;
 import com.qqbot.service.PointsService;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
@@ -128,7 +129,7 @@ public class WelcomeHandler extends BotPlugin {
         }
 
         try {
-            pointsService.addPoints(userId, introPoints);
+            pointsService.addPoints(userId, introPoints, "破冰奖励");
             bot.sendGroupMsg(groupId,
                     "[CQ:at,qq=" + userId + "] 自我介绍成功，破冰 +" + introPoints
                             + " 积分！欢迎融入本群喵～", false);
@@ -159,18 +160,12 @@ public class WelcomeHandler extends BotPlugin {
     }
 
     /**
-     * 这些是指令类消息，不能拿来当自我介绍领奖励
+     * 指令类消息不能拿来当自我介绍领奖励。
+     * 名单收口在 {@link CommandWords}：以前这里是手工黑名单，
+     * 每加一个指令都要记得回来补一行，漏了就能用新指令白嫖破冰奖励。
      */
     private boolean isCommand(String text) {
-        return "签到".equals(text) || "hello".equalsIgnoreCase(text)
-                || "积分".equals(text) || "积分排行".equals(text)
-                || text.startsWith("点歌")
-                || text.startsWith("提醒我")
-                || "天气".equals(text) || text.startsWith("天气 ")
-                || text.startsWith("答题") || "今日一题".equals(text)
-                || "今日运势".equals(text) || "运势".equals(text) || "求签".equals(text)
-                || "帮助".equals(text) || "指南".equals(text) || "菜单".equals(text)
-                || BiliHandler.isBiliCommand(text);
+        return CommandWords.isAnyCommand(text);
     }
 
     /** 只统计字母和数字（中文算字母），排除纯表情、标点、空白 */

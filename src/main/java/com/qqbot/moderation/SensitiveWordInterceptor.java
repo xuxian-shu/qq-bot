@@ -34,6 +34,7 @@ public class SensitiveWordInterceptor implements BotMessageEventInterceptor {
 
     private static final Logger log = LoggerFactory.getLogger(SensitiveWordInterceptor.class);
     private static final String HIT_KEY_PREFIX = "moderation:hit:";
+    private static final String ANNOUNCE_KEY_PREFIX = "moderation:announce:";
 
     @Resource
     private SensitiveWordFilter sensitiveWordFilter;
@@ -64,6 +65,10 @@ public class SensitiveWordInterceptor implements BotMessageEventInterceptor {
 
     @Value("${moderation.exempt-admins:true}")
     private boolean exemptAdmins;
+
+    /** 处罚公告频控：同群两条公告最短间隔秒数 */
+    @Value("${moderation.announce-cooldown-seconds:300}")
+    private long announceCooldownSeconds;
 
     @Override
     public boolean preHandle(Bot bot, MessageEvent event) {
@@ -130,26 +135,35 @@ public class SensitiveWordInterceptor implements BotMessageEventInterceptor {
         boolean recalled = recall(bot, messageId);
 
         try {
-            pointsService.deductPoints(userId, deductPoints);
+            pointsService.deductPoints(userId, deductPoints, "违规扣分");
         } catch (Exception e) {
             log.warn("违规扣分失败：qq={}", userId, e);
         }
 
         long hitCount = increaseHitCount(groupId, userId);
         String at = "[CQ:at,qq=" + userId + "]";
+        String announcement;
 
         if (hitCount <= 1) {
             String action = recalled ? "已撤回并扣除 " + deductPoints + " 积分" : "已记录并扣除 " + deductPoints + " 积分";
-            sendGroupMsg(bot, groupId, at + " " + action + "，请注意群规喵～");
+            announcement = at + " " + action + "，请注意群规喵～";
         } else {
             int seconds = hitCount == 2 ? muteSeconds : longMuteSeconds;
             boolean muted = seconds > 0 && ban(bot, groupId, userId, seconds);
 
             if (muted) {
-                sendGroupMsg(bot, groupId, at + " 多次违规，已禁言 " + (seconds / 60) + " 分钟，请注意群规喵～");
+                announcement = at + " 多次违规，已禁言 " + (seconds / 60) + " 分钟，请注意群规喵～";
             } else {
-                sendGroupMsg(bot, groupId, at + " 多次违规，已记录。机器人没有禁言权限，请管理员处理喵～");
+                announcement = at + " 多次违规，已记录。机器人没有禁言权限，请管理员处理喵～";
             }
+        }
+
+        // 公告限流：处置（撤回/扣分/禁言）已经执行，这里只压 @ 人的喊话，
+        // 防止有人借"故意违规"驱动机器人刷屏公告骚扰全群
+        if (tryAnnounce(groupId)) {
+            sendGroupMsg(bot, groupId, announcement);
+        } else {
+            log.info("处罚公告触发频控，本次静默：group={}, qq={}, hitCount={}", groupId, userId, hitCount);
         }
 
         // 只记录命中词和处置结果，不落库原始消息内容
@@ -199,18 +213,49 @@ public class SensitiveWordInterceptor implements BotMessageEventInterceptor {
     }
 
     /**
-     * 24 小时内的违规次数。Redis 不可用时按 1 次处理：
-     * 只撤回+扣分，不做禁言，宁可少罚也不误封。
+     * 24 小时内的违规次数——固定窗口：TTL 只在第一次计数时设置，
+     * 之后每次违规不再续期，窗口从"本窗口首犯"起算、到点整窗清零。
+     * <p>
+     * 之前每次 increment 都 expire，窗口会无限顺延：每天违规 1 次的人
+     * 计数永远不清零，第二次起被永久按"惯犯"处置，配置里的
+     * "24 小时内 3 次"实际上永远测不准。
+     * <p>
+     * Redis 不可用时按 1 次处理：只撤回+扣分，不做禁言，宁可少罚也不误封。
      */
     private long increaseHitCount(long groupId, long userId) {
         String key = HIT_KEY_PREFIX + groupId + ":" + userId;
         try {
             Long count = stringRedisTemplate.opsForValue().increment(key);
-            stringRedisTemplate.expire(key, offenseWindowHours, TimeUnit.HOURS);
+            if (count != null && count == 1L) {
+                // 只有窗口建立的那一次设 TTL；count==1 时 key 刚由 increment 创建，
+                // 与 increment 之间不会插入其他写操作（同一 key 的 increment 串行），安全
+                stringRedisTemplate.expire(key, offenseWindowHours, TimeUnit.HOURS);
+            }
             return count == null ? 1 : count;
         } catch (Exception e) {
             log.warn("违规计数失败，按首次处理：group={}, qq={}", groupId, userId, e);
             return 1;
+        }
+    }
+
+    /**
+     * 群公告频控闸门：同一群的处罚公告最短间隔。
+     * <p>
+     * 为什么要限频：处罚公告是机器人自己发的，想闹的人连发几条打码违规内容，
+     * 就能让机器人替他刷屏公告、骚扰全群——处罚系统被武器化的成本比人工刷屏还低。
+     * 注意这里只限"公告"，撤回/扣分/禁言等实际处置每次照常执行，
+     * 被限流的只是那条 @ 人的喊话（落日志可查，不丢失）。
+     */
+    private boolean tryAnnounce(long groupId) {
+        String key = ANNOUNCE_KEY_PREFIX + groupId;
+        try {
+            Boolean ok = stringRedisTemplate.opsForValue()
+                    .setIfAbsent(key, "1", announceCooldownSeconds, TimeUnit.SECONDS);
+            return Boolean.TRUE.equals(ok);
+        } catch (Exception e) {
+            // Redis 故障时选择"发公告"：宁可多发一条，不想让处置无声无息
+            log.warn("处罚公告频控检查失败，本次照常公告：group={}", groupId, e);
+            return true;
         }
     }
 

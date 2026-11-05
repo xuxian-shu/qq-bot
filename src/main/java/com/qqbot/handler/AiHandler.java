@@ -4,6 +4,7 @@ import com.mikuac.shiro.core.Bot;
 import com.mikuac.shiro.core.BotPlugin;
 import com.mikuac.shiro.dto.event.message.GroupMessageEvent;
 import com.mikuac.shiro.dto.event.message.PrivateMessageEvent;
+import com.qqbot.command.CommandWords;
 import com.qqbot.exception.BusinessException;
 import com.qqbot.exception.BusinessTimeoutException;
 import com.qqbot.service.AiService;
@@ -14,10 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
-
-import static com.qqbot.handler.BiliHandler.isBiliCommand;
-import static com.qqbot.handler.FortuneHandler.isFortuneCommand;
-import static com.qqbot.handler.HelpHandler.isHelpCommand;
 
 @Component
 public class AiHandler extends BotPlugin {
@@ -39,15 +36,13 @@ public class AiHandler extends BotPlugin {
         String msg = event.getMessage();
         long qq = event.getUserId();
 
-        // 指令类消息（签到、hello、帮助、天气、积分、提醒、运势）不由 AI 处理，直接返回。
-        // 各指令归各自的 Handler 管，不排除的话对应 Handler 回完后
-        // AI 还会再回一条，用户收到双份回复。
+        // 指令类消息不由 AI 处理，直接返回：各指令归各自的 Handler 管，
+        // 不排除的话对应 Handler 回完后 AI 还会再回一条，用户收到双份回复。
+        // 名单收口在 CommandWords.isAnyCommand——以前这里和 WelcomeHandler 各手抄
+        // 一份清单，加新指令忘同步就会出现"AI 抢答新指令"；现在加指令只改一处。
         // 注意：这里必须 return，不能只把它们排除在冷却判断外面，
         // 否则后面照样会调用 aiService.chat()，AI 还是会插嘴。
-        if ("签到".equals(msg) || "hello".equals(msg) || "天气".equals(msg) || msg.startsWith("天气 ")
-                || "积分".equals(msg) || "积分排行".equals(msg)
-                || msg.startsWith("提醒我") || msg.startsWith("答题") || "今日一题".equals(msg)
-                || isFortuneCommand(msg) || isHelpCommand(msg) || isBiliCommand(msg)) {
+        if (CommandWords.isAnyCommand(msg)) {
             return MESSAGE_IGNORE;
         }
 
@@ -82,17 +77,9 @@ public class AiHandler extends BotPlugin {
                 return MESSAGE_IGNORE;
             }
 
-            // 指令类消息交给各自的 Handler：
-            // 签到 → SignInHandler，点歌 → MusicHandler，帮助 → HelpHandler，
-            // 积分 → PointsHandler，提醒 → ReminderHandler，天气 → WeatherHandler，
-            // 运势 → FortuneHandler。
-            // 这里必须 return，否则 AI 还会再回复一次。
-            if ("签到".equals(cleanMsg) || "hello".equals(cleanMsg) || "积分".equals(cleanMsg)
-                    || "积分排行".equals(cleanMsg) || cleanMsg.startsWith("点歌")
-                    || cleanMsg.startsWith("提醒我") || "天气".equals(cleanMsg)
-                    || cleanMsg.startsWith("天气 ") || cleanMsg.startsWith("答题")
-                    || "今日一题".equals(cleanMsg) || isFortuneCommand(cleanMsg)
-                    || isHelpCommand(cleanMsg) || isBiliCommand(cleanMsg)) {
+            // 指令类消息交给各自的 Handler（签到/点歌/帮助/积分/提醒/天气/运势/每日一题/抽奖…），
+            // 名单统一收口在 CommandWords，这里必须 return，否则 AI 还会再回复一次。
+            if (CommandWords.isAnyCommand(cleanMsg)) {
                 return MESSAGE_IGNORE;
             }
 

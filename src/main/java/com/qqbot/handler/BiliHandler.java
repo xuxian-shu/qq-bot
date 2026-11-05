@@ -4,6 +4,7 @@ import com.mikuac.shiro.core.Bot;
 import com.mikuac.shiro.core.BotPlugin;
 import com.mikuac.shiro.dto.event.message.GroupMessageEvent;
 import com.mikuac.shiro.dto.event.message.PrivateMessageEvent;
+import com.qqbot.command.CommandWords;
 import com.qqbot.service.BiliService;
 import com.qqbot.service.CooldownService;
 import jakarta.annotation.Resource;
@@ -18,7 +19,7 @@ import org.springframework.stereotype.Component;
  * 今晚看什么  根据 TA 的首页推荐随机挑 3 条视频
  * </pre>
  * 群里都要 @机器人；私聊直接发。
- * 注意：新指令已同步到 AiHandler 的排除名单，否则 AI 会对这些词再回一条。
+ * 指令词登记在 CommandWords，AiHandler 排除名单与破冰黑名单自动生效。
  */
 @Component
 public class BiliHandler extends BotPlugin {
@@ -30,18 +31,12 @@ public class BiliHandler extends BotPlugin {
     private CooldownService cooldownService;
 
     /**
-     * 判断一句话是不是 B站 指令。做成 public static，
-     * 供 AiHandler / WelcomeHandler 复用同一套判断，避免加词时漏改。
+     * 判断一句话是不是 B站 指令。词表在 {@link CommandWords#isBili}，
+     * 本方法只是给本 Handler 内部用的转发，保持公开 API 不变。
+     * 加词请改 CommandWords（AiHandler / WelcomeHandler 那边自动生效）。
      */
     public static boolean isBiliCommand(String msg) {
-        if (msg == null) {
-            return false;
-        }
-        String text = msg.trim();
-        return "绑定B站".equals(text)
-                || "解绑B站".equals(text)
-                || "我的B站".equals(text)
-                || "今晚看什么".equals(text);
+        return CommandWords.isBili(msg);
     }
 
     @Override

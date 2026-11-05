@@ -4,12 +4,15 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.qqbot.entity.SignInRecord;
 import com.qqbot.entity.User;
+import com.qqbot.mapper.SignInGroupMapper;
 import com.qqbot.mapper.SignInrecordMapper;
 import com.qqbot.mapper.UserMapper;
 import com.qqbot.service.BotImageService;
 import com.qqbot.service.PointsService;
 import com.qqbot.service.SignInService;
 import jakarta.annotation.Resource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +24,8 @@ import java.util.concurrent.ThreadLocalRandom;
 @Service
 public class SignInServiceImpl implements SignInService {
 
+    private static final Logger log = LoggerFactory.getLogger(SignInServiceImpl.class);
+
     // 签到奖励规则：基础 10 分，连续签到每多 1 天 +2（封顶 +10），10% 概率暴击翻倍
     private static final int BASE_POINTS = 10;
     private static final int STREAK_BONUS_CAP = 10;
@@ -31,6 +36,9 @@ public class SignInServiceImpl implements SignInService {
 
     @Resource
     private SignInrecordMapper signInrecordMapper;
+
+    @Resource
+    private SignInGroupMapper signInGroupMapper;
 
     @Resource
     private BotImageService botImageService;
@@ -53,6 +61,12 @@ public class SignInServiceImpl implements SignInService {
                 .eq(SignInRecord::getSignDate, today);
         Long count = signInrecordMapper.selectCount(query);//查询是否有签到记录
         if (count > 0) {
+            // 今天已在别处签过：群聊场景仍记一笔本群打卡，
+            // 否则"先在 A 群签、后在 B 群露脸"的人永远进不了 B 群排行
+            recordGroupAttendance(qq, groupId, today);
+            if (groupId > 0) {
+                return "你今天已经签到过啦，本群的打卡小喵替你记下了，明天记得先来本群哦！";
+            }
             return "你今天已经签到过啦，明天再来吧！";
         }
 
@@ -108,8 +122,11 @@ public class SignInServiceImpl implements SignInService {
             return "你今天已经签到过啦，明天再来吧！";
         }
 
-        // 6. 原子加积分，拿回变动后的最新余额给卡片显示
-        long newPoints = pointsService.addPoints(qq, gained);
+        // 5.5 顺手记一笔本群打卡（INSERT IGNORE 幂等；私聊 groupId=0 不记）
+        recordGroupAttendance(qq, groupId, today);
+
+        // 6. 原子加积分（带流水原因），拿回变动后的最新余额给卡片显示
+        long newPoints = pointsService.addPoints(qq, gained, "每日签到");
 
         // 7. 把昵称存进用户表（老用户每次签到刷新），积分排行榜显示名字要用
         userMapper.update(null, new LambdaUpdateWrapper<User>()
@@ -119,5 +136,22 @@ public class SignInServiceImpl implements SignInService {
         // 8. 生成签到卡片，把连击和暴击信息写在卡片第三行
         String extraLine = "连击 " + continuousDays + " 天，本次 +" + gained + (crit ? " 暴击x2！" : "");
         return botImageService.generateSignCardCqCode(qq, displayName, (int) newPoints, extraLine);
+    }
+
+    /**
+     * 记录本群当日打卡：排行统计口径用。
+     * INSERT IGNORE 幂等（唯一索引 uk_qq_group_date），连点/重复签到都无感。
+     * 打卡只是"露个脸"，写失败顶多今天不在本群排行里，绝不能把签到主流程带崩，
+     * 所以整体吞异常只告警。私聊（groupId=0）没有群概念，跳过。
+     */
+    private void recordGroupAttendance(long qq, long groupId, LocalDate today) {
+        if (groupId <= 0) {
+            return;
+        }
+        try {
+            signInGroupMapper.insertIgnore(qq, groupId, today);
+        } catch (Exception e) {
+            log.warn("群打卡记录失败：qq={}, group={}, date={}", qq, groupId, today, e);
+        }
     }
 }

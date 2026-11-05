@@ -42,15 +42,22 @@ public class HelpHandler extends BotPlugin {
                     "私聊发送：积分 / 积分排行",
                     "群聊发送：@我 积分 / @我 积分排行",
                     "排行榜收录的是在本群签过到的大佬们喵～")),
+            new HelpSection("积分抽奖", List.of(
+                    "私聊发送：抽奖",
+                    "群聊发送：@我 抽奖",
+                    "每次 20 积分（与 application.yml 的 lottery.cost 保持一致），",
+                    "奖池 0/10/30/50/100 分，期望回收 13 分——小赌怡情，",
+                    "积分多的卷王快来把库存变成心跳喵～")),
             new HelpSection("定时提醒", List.of(
                     "私聊发送：提醒我 30分钟后 收衣服",
                     "群聊发送：@我 提醒我 30分钟后 收衣服",
                     "支持 X分钟后 / X小时后，最长 24 小时，每人同时最多挂 3 条喵～")),
             new HelpSection("每日一题", List.of(
                     "每天 8 点自动在群里出题（单词/代码题）",
-                    "群聊抢答：@我 答题 你的答案",
+                    "群聊抢答：@我 答题 你的答案（只能在出题的群里答）",
                     "看题：@我 今日一题",
-                    "第一位答对的群友 +20 积分，手慢无喵！")),
+                    "第一位答对的群友 +20 积分，手慢无喵！",
+                    "每人每天最多 3 次尝试机会，猜错太多次今天就没戏了～")),
             new HelpSection("点歌", List.of(
                     "群聊发送：@我 点歌 歌名",
                     "例如：@我 点歌 晴天",
@@ -120,13 +127,8 @@ public class HelpHandler extends BotPlugin {
      * 先 trim() 去掉首尾空格，这样用户发“ 帮助 ”也能识别。
      */
     public static boolean isHelpCommand(String msg) {
-        if (msg == null) {
-            return false;
-        }
-        String text = msg.trim();//去掉首尾空格
-        return "帮助".equals(text)
-                || "指南".equals(text)
-                || "菜单".equals(text);
+        //词表收口在 CommandWords，加词改那里（null 安全与 trim 都在内部处理）
+        return com.qqbot.command.CommandWords.isHelp(msg);
     }
 
     /**

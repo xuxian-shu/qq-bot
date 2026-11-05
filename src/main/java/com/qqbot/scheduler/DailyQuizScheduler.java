@@ -37,7 +37,8 @@ public class DailyQuizScheduler {
             return;
         }
 
-        String text = quizService.pushDailyQuestion();
+        // 题目与目标群绑定：只有本群成员能抢答，堵掉跨群白嫖
+        String text = quizService.pushDailyQuestion(groupId);
 
         // 调度线程不在消息事件里，用 BotContainer 拿常驻 Bot 实例。
         // 单号机器人就一个，取第一个即可

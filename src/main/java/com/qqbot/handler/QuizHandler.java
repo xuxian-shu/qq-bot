@@ -11,10 +11,10 @@ import org.springframework.stereotype.Component;
 
 /**
  * 每日一题插件。
- * 群聊：@我 答题 <答案>（抢答）/ @我 今日一题（看题）
+ * 群聊：@我 答题 <答案>（抢答，仅限出题的那个群）/ @我 今日一题（看题）
  * 私聊：今日一题（看题）；答题请去群里才有抢答气氛
  * <p>
- * 注意：新指令要同步到 AiHandler 的排除名单，否则 AI 会对这些词再回一条。
+ * 指令词已登记在 CommandWords，AiHandler 排除名单与破冰黑名单自动生效。
  */
 @Component
 public class QuizHandler extends BotPlugin {
@@ -34,7 +34,9 @@ public class QuizHandler extends BotPlugin {
         }
         String text = msg.trim();
         if ("今日一题".equals(text)) {
-            bot.sendPrivateMsg(event.getUserId(), quizService.todayQuestionText(), false);
+            // 私聊查题 groupId 传 0：不做绑群校验，但已绑群的题被抢答前
+            // 只回题面不回答案，抄不到跨群的答案
+            bot.sendPrivateMsg(event.getUserId(), quizService.todayQuestionText(0), false);
         } else if (text.startsWith("答题")) {
             bot.sendPrivateMsg(event.getUserId(), "答题要在群里玩才有抢答气氛喵～\n去群里发「@我 答题 你的答案」", false);
         }
@@ -55,7 +57,7 @@ public class QuizHandler extends BotPlugin {
         String cleanMsg = msg.replace(atCode, "").trim();
 
         if ("今日一题".equals(cleanMsg)) {
-            bot.sendGroupMsg(event.getGroupId(), quizService.todayQuestionText(), false);
+            bot.sendGroupMsg(event.getGroupId(), quizService.todayQuestionText(event.getGroupId()), false);
             return MESSAGE_IGNORE;
         }
 
@@ -72,7 +74,9 @@ public class QuizHandler extends BotPlugin {
                 return MESSAGE_IGNORE;
             }
 
-            bot.sendGroupMsg(event.getGroupId(), quizService.submitAnswer(event.getUserId(), answer), false);
+            // 抢答必须发生在出题的群：本群群号交给 Service 做绑群校验和尝试计数
+            bot.sendGroupMsg(event.getGroupId(),
+                    quizService.submitAnswer(event.getUserId(), answer, event.getGroupId()), false);
         }
         return MESSAGE_IGNORE;
     }

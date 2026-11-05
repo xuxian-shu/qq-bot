@@ -17,6 +17,7 @@ public class QuizQuestion {//每日一题的题目
     private String question;//题面
     private String answer;//标准答案
     private LocalDate usedDate;//使用日期（NULL = 还没出过）
+    private Long groupId;//出题的目标群；NULL = 历史数据不绑群
     private Long winnerQq;//首位答对的人（NULL = 还没被抢答）
     private LocalDateTime winnerTime;//抢答时间
 }
